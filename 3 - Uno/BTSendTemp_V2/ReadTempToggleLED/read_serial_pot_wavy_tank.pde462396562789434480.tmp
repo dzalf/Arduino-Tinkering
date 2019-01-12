@@ -1,0 +1,194 @@
+import controlP5.*;
+
+// Processing code for this example
+
+// Display a simulation of a water tank filling and emptying
+
+// This example code is in the public domain.
+
+import processing.serial.*;
+ControlP5 cp5;
+
+Serial myPort;        
+float inByte = 0;
+float seed = 0;
+float tall = 1.0;
+float percent = 0.0;
+float w = 600.0;
+float h = 600.0;
+int waveHeight = 50;
+String[] PortList;
+int numPort;
+
+percentBox perBox;
+conditionsBox emptyBox;
+conditionsBox fullBox;
+
+void setup () {
+  
+  // set inital background:
+  background(67, 203, 237);
+  // set the window size:
+  size(600, 700);
+
+  PortList = new String[5];
+  
+  int colEmpty[] = {255, 0, 0};
+  int colFull[] = {0, 125, 250};
+  perBox = new percentBox();
+  emptyBox = new conditionsBox("Empty tank", 30, 230, 180, colEmpty);
+  fullBox = new conditionsBox("Full tank", 30, 230, 180, colFull );
+
+  
+  myPort = new Serial(this, Serial.list()[0], 115200);
+  PortList = Serial.list();
+  numPort = PortList.length;
+  printArray(PortList);
+  print("NumPort = ", numPort);
+  // don't generate a serialEvent() unless you get a newline character:
+  myPort.bufferUntil('\n');
+
+  
+  perBox.rectCol = 200;
+  
+  cp5 = new ControlP5(this);
+ 
+  cp5.addButton(myPort.list()[0])
+    .setValue(10)
+    .setPosition(50, 610)
+    .setSize(100, 50)
+    ;
+}
+void draw () {
+  background(67, 203, 237); //light blue
+  
+
+  displayBigBar(inByte);
+
+  if (percent >= 6) {
+    
+    perBox.txtPosX = 4;
+    perBox.rectPosY = h-tall;
+    perBox.txtPosY = h-tall+20;
+    perBox.display();
+    
+  } else {
+    
+    perBox.txtPosX = 9;
+    perBox.rectPosY = h-tall-30;
+    perBox.txtPosY = h-tall-10;
+    perBox.display();
+   
+    if (percent < 2) {
+
+      emptyBox.display();
+    }
+    if (percent < 10) {
+      perBox.txtPosX = 15;
+    }
+  }
+  if (percent > 98) {
+    perBox.rectSizeX = 65;
+    perBox.txtPosX = 0;
+    fullBox.display();
+  }
+  displayRawInputs(seed);
+}
+
+
+void serialEvent (Serial myPort) {
+  // get the ASCII string:
+  String inString = myPort.readStringUntil('\n');
+
+  if (inString != null) {
+    // trim off any whitespace:
+    inString = trim(inString);
+    // convert to an int and map to the screen height:
+    //inByte = float(inString); //previous code line 
+    //considering one value coming from the buffer
+    float[] pot = float(split(inString, ","));
+    if (pot.length >=3) {
+      //println(pot[0]);
+      inByte = pot[0];
+      seed = map(pot[1], 0, 1023, 0, w);
+    }
+  }
+  
+}
+
+void displayRawInputs(float tempPosX) {
+  float posX = tempPosX;
+  fill(0);
+  textSize(10);
+  String dataText = nf(int(inByte), 1);
+  String tallText = nf(int(tall), 1);
+  text("data  = " +dataText, posX, h-10); //w-75
+  text("tall = " +tallText, posX, h-20);
+}
+
+void displayBigBar(float tempVal) {
+  inByte = tempVal;
+  tall = map(inByte, 0, 1025, 0, h);
+  percent=ceil((tall/h)*100);
+  
+  noStroke();
+  fill(255*(1-percent/100), 255*percent/100, 0); 
+  rect(0, h-tall, w, tall);
+  
+  beginShape(); 
+  
+  float xoff = 0;       // Option #1: 2D Noise
+  float yoff = 0.0;
+  // Iterate over horizontal pixels
+  for (int x = 0; x <= width; x += 10) {
+    // Calculate a y value according to noise, map to 
+    
+    // Option #1: 2D Noise
+    float y = map(noise(xoff, yoff), 0, 1, h-waveHeight, h) - tall;
+    
+    print("y = " +y);
+    // Set the vertex
+    vertex(x, y); 
+    // Increment x dimension for noise
+    xoff += 0.02;
+    
+    fill(0);
+    textSize(20);
+    text(" offset = " + offset, 10,20);
+    //print("Y = " + mouseY);
+    print("\n");
+  }
+  
+  // increment y dimension for noise
+  yoff += 0.01;
+  noStroke();
+  
+    fill(0, 100,200);
+  vertex(w, h);
+  vertex(0, h);
+  endShape(CLOSE);
+  
+}
+
+// TO REPLACE SERIAL WITH KEYBOARD
+
+void keyPressed(){
+  if (key == CODED) {
+    if(keyCode == UP){
+      inByte = inByte + 10;
+    }
+    
+    if(keyCode == DOWN){
+      inByte = inByte - 10;
+    }
+    if(keyCode == LEFT){
+      seed = seed - 10; 
+    }
+    if(keyCode == RIGHT){
+      seed = seed + 10; 
+    }
+  }
+  inByte = constrain(inByte, 0, 1023);
+  seed = int(seed);
+  seed = constrain(seed, 0, w);
+}

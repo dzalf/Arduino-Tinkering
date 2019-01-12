@@ -1,0 +1,255 @@
+import controlP5.*;
+
+// Processing code for this example
+
+// Display a simulation of a water tank filling and emptying
+
+// This example code is in the public domain.
+
+import processing.serial.*;
+ControlP5 cp5;
+
+Serial myPort;        
+float inByte = 0;
+float seed = 0;
+float tall = 1.0;
+float percent = 0.0;
+float w = 600.0;
+float h = 600.0;
+int waveHeight = 50;
+String[] PortList;
+int numPort;
+float xoff = 0;  
+float yoff = 0.0;
+float[] lastState;
+float lastVal = 0.0;;
+float newState = 0.0;
+float thres = 0.1;
+int portSelected = 1;
+int j = 0;
+
+percentBox perBox;
+conditionsBox emptyBox;
+conditionsBox fullBox;
+conditionsBox fillingBox;
+conditionsBox emptyingBox;
+conditionsBox idleBox;
+void setup () {
+  
+  // set inital background:
+  //background(67, 203, 237);
+  // set the window size:
+  size(600, 700);
+  
+  lastState = new float[30];
+
+  PortList = new String[5];
+  
+  int colEmpty[] = {255, 186, 0};
+  int colFull[] = {138, 255, 124};
+  int colFilling[] = {255, 168, 36};
+  int colEmptying[] = {235, 247, 142};
+  int colIdle[] = {66, 216, 205};
+  perBox = new percentBox();
+  emptyBox = new conditionsBox("Empty tank :(", 40, 200, 660, colEmpty);
+  fullBox = new conditionsBox("Full tank! :)", 40, 210, 660, colFull );
+  fillingBox = new conditionsBox("Filling tank...", 40, 200, 660, colFilling );
+  emptyingBox = new conditionsBox("Emptying tank...", 40, 200, 660, colEmptying );
+  idleBox = new conditionsBox("Idling tank...", 40, 150, 660, colIdle );
+  
+  myPort = new Serial(this, Serial.list()[portSelected], 115200);
+  PortList = Serial.list();
+  numPort = PortList.length;
+  //printArray(PortList);
+  //print("NumPort = ", numPort);
+  // don't generate a serialEvent() unless you get a newline character:
+  myPort.bufferUntil('\n');
+
+  
+  perBox.rectCol = 200;
+  
+  cp5 = new ControlP5(this);
+ 
+  cp5.addButton(myPort.list()[portSelected])
+    .setValue(10)
+    .setPosition(30, 620)
+    .setSize(100, 50)
+    ;
+    
+}
+void draw () {
+  
+  background(#C4D0FF); //light grey #5751B2
+  
+  tall = map(inByte, 0, 1023, 0, h);
+  percent=ceil((tall/h)*100);
+  newState = tall;
+  
+  noStroke();
+  
+  beginShape(); 
+  
+  xoff = 0;
+  
+  // Iterate over horizontal pixels
+  for (int x = 0; x <= w; x += 10) {
+    // Calculate a y value according to noise, map to 
+    
+    // Option #1: 2D Noise
+    float y = map(noise(xoff, yoff), 0, 1, h-waveHeight, h) - tall;
+
+    // Set the vertex
+    vertex(x, y); 
+    // Increment x dimension for noise
+    xoff += 0.02;
+    
+    
+  }
+  
+  
+  //lastVal = temp/lastState.length;
+  lastVal = min(lastState);
+  // increment y dimension for noise
+  yoff += 0.01;
+  
+  fill(#206FBC);
+  vertex(w, h);
+  vertex(0, h);
+  endShape(CLOSE);
+  
+  //displayBigBar(inByte);
+   if (percent >= 6) {
+    
+    perBox.txtPosX = 4;
+    perBox.rectPosY = h-tall;
+    perBox.txtPosY = h-tall+20;
+    perBox.display();
+    
+  } else {
+    
+    perBox.txtPosX = 9;
+    perBox.rectPosY = h-tall-30;
+    perBox.txtPosY = h-tall-10;
+    perBox.display();
+    
+    
+    if (percent < 10) {
+      perBox.txtPosX = 15;
+    }
+  }
+    
+    fill(#525CB9);
+    strokeWeight(2);
+    stroke(#4114C1);
+    rect(0,600,w,100);
+    
+    displayRawInputs(seed);
+    
+    
+    
+    if (percent >= 98) {
+      perBox.rectSizeX = 65;
+      perBox.txtPosX = 0;
+      perBox.txtCol = 0;
+      fullBox.display();
+      
+    }
+    
+    
+    if(percent > 2 && percent < 98){
+    // float temp = 0.0;
+  
+      //for(j = 0; j < lastState.length; j++){
+  
+      //temp = temp + lastState[j];
+    
+  //}
+      
+      print("Last: "+ lastVal);
+      print("\n");
+      print("new : "+ newState);
+      print("\n");
+      
+      if (newState > lastVal + thres){
+          fillingBox.display(); 
+      } 
+      
+      if (newState < lastVal - thres ){
+          emptyingBox.display();
+          //lastState = tall;
+      }    
+      if( (newState > lastVal - thres) && (newState < lastVal + thres) ){
+        idleBox.display();
+        for(j = 0; j < lastState.length; j++){
+           lastState[j] = 0;
+        }
+      }
+    }
+    if (percent <= 2) {
+      emptyBox.display();
+    }  
+    //lastState[j] = tall;
+    //j++;
+    print("FR : "+ frameCount/60);
+      print("\n");
+}
+
+
+void serialEvent (Serial myPort) {
+  // get the ASCII string:
+  String inString = myPort.readStringUntil('\n');
+
+  if (inString != null) {
+    // trim off any whitespace:
+    inString = trim(inString);
+    // convert to an int and map to the screen height:
+    //inByte = float(inString); //previous code line 
+    //considering one value coming from the buffer
+    float[] pot = float(split(inString, ","));
+    if (pot.length >=3) {
+      //println(pot[0]);
+      inByte = pot[0];
+      seed = map(pot[1], 0, 1023, 0, w);
+    }
+  }
+  
+}
+
+void displayRawInputs(float tempPosX) {
+  float posX = tempPosX;
+  fill(#4CF5FA);
+  textSize(12);
+  String dataText = nf(int(inByte), 1);
+  String tallText = nf(int(tall), 1);
+  text("data  = " +dataText, 510, h+45);
+  text("tall = " +tallText, 510, h+60);
+}
+
+//void displayBigBar(float tempVal) {
+ // inByte = tempVal;
+  
+  
+//}
+
+// TO REPLACE SERIAL WITH KEYBOARD
+
+void keyPressed(){
+  if (key == CODED) {
+    if(keyCode == UP){
+      inByte = inByte + 1;
+    }
+    
+    if(keyCode == DOWN){
+      inByte = inByte - 1;
+    }
+    //if(keyCode == LEFT){
+   //   seed = seed - 1; 
+   // }
+   // if(keyCode == RIGHT){
+   //   seed = seed + 1; 
+   // }
+  }
+  inByte = constrain(inByte, 0, 1023);
+  seed = int(seed);
+  seed = constrain(seed, 0, w);
+}
