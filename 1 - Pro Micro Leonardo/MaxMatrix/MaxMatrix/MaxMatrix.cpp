@@ -3,7 +3,7 @@
  * Version 1.0 Feb 2013
  * Copyright 2013 Oscar Kin-Chung Au
  */
-
+// This is the version created by Oscar
 
 #include "Arduino.h"
 #include "MaxMatrix.h"
